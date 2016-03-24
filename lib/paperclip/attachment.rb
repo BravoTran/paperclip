@@ -69,7 +69,8 @@ module Paperclip
     # +url_generator+ - the object used to generate URLs, using the interpolator. Defaults to Paperclip::UrlGenerator
     # +escape_url+ - Perform URI escaping to URLs. Defaults to true
     def initialize(name, instance, options = {})
-      @name              = name
+      @name              = name.to_sym
+      @name_string       = name.to_s
       @instance          = instance
 
       options = self.class.default_options.deep_merge(options)
@@ -322,7 +323,7 @@ module Paperclip
       OpenSSL::HMAC.hexdigest(OpenSSL::Digest.const_get(@options[:hash_digest]).new, @options[:hash_secret], data)
     end
 
-    # This method really shouldn't be called that often. It's expected use is
+    # This method really shouldn't be called that often. Its expected use is
     # in the paperclip:refresh rake task and that's it. It will regenerate all
     # thumbnails forcefully, by reobtaining the original file and going through
     # the post-process again.
@@ -366,7 +367,7 @@ module Paperclip
     # instance_write(:file_name, "me.jpg") will write "me.jpg" to the instance's
     # "avatar_file_name" field (assuming the attachment is called avatar).
     def instance_write(attr, value)
-      setter = :"#{name}_#{attr}="
+      setter = :"#{@name_string}_#{attr}="
       if instance.respond_to?(setter)
         instance.send(setter, value)
       end
@@ -375,7 +376,7 @@ module Paperclip
     # Reads the attachment-specific attribute on the instance. See instance_write
     # for more details.
     def instance_read(attr)
-      getter = :"#{name}_#{attr}"
+      getter = :"#{@name_string}_#{attr}"
       if instance.respond_to?(getter)
         instance.send(getter)
       end
@@ -403,8 +404,8 @@ module Paperclip
 
     def ensure_required_accessors! #:nodoc:
       %w(file_name).each do |field|
-        unless @instance.respond_to?("#{name}_#{field}") && @instance.respond_to?("#{name}_#{field}=")
-          raise Paperclip::Error.new("#{@instance.class} model missing required attr_accessor for '#{name}_#{field}'")
+        unless @instance.respond_to?("#{@name_string}_#{field}") && @instance.respond_to?("#{@name_string}_#{field}=")
+          raise Paperclip::Error.new("#{@instance.class} model missing required attr_accessor for '#{@name_string}_#{field}'")
         end
       end
     end
@@ -426,7 +427,7 @@ module Paperclip
     def assign_attributes
       @queued_for_write[:original] = @file
       assign_file_information
-      assign_fingerprint(@file.fingerprint)
+      assign_fingerprint { @file.fingerprint }
       assign_timestamps
     end
 
@@ -436,9 +437,9 @@ module Paperclip
       instance_write(:file_size, @file.size)
     end
 
-    def assign_fingerprint(fingerprint)
+    def assign_fingerprint
       if instance_respond_to?(:fingerprint)
-        instance_write(:fingerprint, fingerprint)
+        instance_write(:fingerprint, yield)
       end
     end
 
@@ -464,7 +465,7 @@ module Paperclip
 
     def reset_file_if_original_reprocessed
       instance_write(:file_size, @queued_for_write[:original].size)
-      assign_fingerprint(@queued_for_write[:original].fingerprint)
+      assign_fingerprint { @queued_for_write[:original].fingerprint }
       reset_updater
     end
 
@@ -521,7 +522,11 @@ module Paperclip
 
         @queued_for_write[name] = style.processors.inject(@queued_for_write[:original]) do |file, processor|
           file = Paperclip.processor(processor).make(file, style.processor_options, self)
-          intermediate_files << file
+          intermediate_files << file unless file == @queued_for_write[:original]
+          # if we're processing the original, close + unlink the source tempfile
+          if name == :original
+            @queued_for_write[:original].close(true)
+          end
           file
         end
 
@@ -586,7 +591,7 @@ module Paperclip
 
     # You can either specifiy :restricted_characters or you can define your own
     # :filename_cleaner object. This object needs to respond to #call and takes
-    # the filename that will be cleaned. It should return the cleaned filenme.
+    # the filename that will be cleaned. It should return the cleaned filename.
     def filename_cleaner
       @options[:filename_cleaner] || FilenameCleaner.new(@options[:restricted_characters])
     end
