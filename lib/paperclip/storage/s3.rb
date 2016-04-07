@@ -355,7 +355,7 @@ module Paperclip
       end
 
       def flush_writes #:nodoc:
-        @queued_for_write.each do |style, file|
+        @queued_for_write.peach(10) do |style, file|
         retries = 0
           begin
             log("saving #{path(style)}")
