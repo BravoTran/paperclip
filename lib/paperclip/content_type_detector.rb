@@ -50,13 +50,18 @@ module Paperclip
     alias :empty? :empty_file?
 
     def calculated_type_matches
-      possible_types.select do |content_type|
-        content_type == type_from_file_contents
-      end
+      possible_types & types_from_file_contents
     end
 
     def possible_types
       MIME::Types.type_for(@filepath).collect(&:content_type)
+    end
+
+    def types_from_file_contents
+      [type_from_file_command, type_from_mime_magic].compact
+    rescue Errno::ENOENT => e
+      Paperclip.log("Error while determining content type: #{e}")
+      SENSIBLE_DEFAULT
     end
 
     def type_from_file_contents
