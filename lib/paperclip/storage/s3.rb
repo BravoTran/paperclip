@@ -112,8 +112,10 @@ module Paperclip
     #     :s3_storage_class => :reduced_redundancy
 
     module S3
+      SEMAPHORE = Mutex.new
+
       def self.extended base
-        Thread.exclusive do
+        SEMAPHORE.synchronize do
           unless defined?(AWS_CLASS)
             begin
               require 'aws-sdk'
