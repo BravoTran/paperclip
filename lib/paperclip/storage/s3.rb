@@ -118,7 +118,7 @@ module Paperclip
         SEMAPHORE.synchronize do
           unless defined?(AWS_CLASS)
             begin
-              require 'aws-sdk'
+              require 'aws-sdk-s3'
               const_set('AWS_CLASS', defined?(::Aws) ? ::Aws : ::AWS)
               const_set('AWS_BASE_ERROR',
                 defined?(::Aws) ? Aws::Errors::ServiceError : AWS::Errors::Base)
