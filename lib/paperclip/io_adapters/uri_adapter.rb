@@ -14,7 +14,7 @@ module Paperclip
     private
 
     def download_content
-      open(@target)
+      URI.open(@target)
     end
 
     def cache_current_values
