@@ -33,7 +33,8 @@ module Paperclip
         :use_timestamp         => true,
         :whiny                 => Paperclip.options[:whiny] || Paperclip.options[:whiny_thumbnails],
         :validate_media_type   => true,
-        :check_validity_before_processing => true
+        :check_validity_before_processing => true,
+        :skip_assign_timestamps => false
       }
     end
 
@@ -333,6 +334,7 @@ module Paperclip
     def reprocess!(*style_args)
       saved_only_process, @options[:only_process] = @options[:only_process], style_args
       saved_preserve_files, @options[:preserve_files] = @options[:preserve_files], true
+      saved_skip_assign_timestamps, @options[:skip_assign_timestamps] = @options[:skip_assign_timestamps], true
       begin
         assign(self)
         save
@@ -343,6 +345,7 @@ module Paperclip
       ensure
         @options[:only_process] = saved_only_process
         @options[:preserve_files] = saved_preserve_files
+        @options[:skip_assign_timestamps] = saved_skip_assign_timestamps
       end
     end
 
@@ -448,7 +451,9 @@ module Paperclip
         instance_write(:created_at, Time.now)
       end
 
-      instance_write(:updated_at, Time.now)
+      if !@options[:skip_assign_timestamps]
+        instance_write(:updated_at, Time.now)
+      end
     end
 
     def post_process_file
